@@ -1,0 +1,50 @@
+-- dimDate generation 
+-- Used tips from 
+-- 'https://www.mssqltips.com/sqlservertip/4054/creating-a-date-dimension-or-calendar-table-in-sql-server/' 
+-- 'https://stackoverflow.com/questions/7428669/how-to-set-the-maxrecursion-option-for-a-cte-inside-a-table-valued-function'
+-- as guidelines
+
+-- Creates a table used for our dim_date table 
+-- We're taking our granularity up to the hour because we need insights during the time of the day, according to the business outcomes requirements. 
+
+Declare   @yearrange int = 10;		-- number of years to generate our calendar (i.e 10 for 10 years)
+Declare   @StartDate date = '20170101';	
+;WITH seq0(l) AS 
+(
+	SELECT 0 UNION ALL SELECT l + 1 FROM seq0
+	WHERE l+1 < 100
+),
+seq1(m) AS 
+(
+	SELECT 0 UNION ALL SELECT m + 1 FROM seq1
+	WHERE m+1 < 90
+),
+calendar(daydatetime) AS
+(
+	SELECT DATEADD(day, l+(100*m), @StartDate) FROM seq0,seq1
+	where (l + (100*m)) <= DATEDIFF(day, @StartDate, DATEADD(DAY, -1, DATEADD(YEAR, @yearrange, @StartDate)))
+),
+hourseq(dayhour) AS
+(
+	SELECT CAST('00:00:00' as datetime) UNION ALL SELECT dayhour + CAST('01:00:00' as datetime) FROM hourseq
+	WHERE dayhour < CAST('23:00:00' as datetime)
+),
+days(date_daytime) AS
+(	
+	SELECT 
+	CAST(daydatetime as datetime) + dayhour
+	FROM calendar, hourseq
+)
+SELECT 
+	date_daytime					as [date_id], 
+	CAST(date_daytime as DATE)      as [date],
+	DATEPART(DAY, date_daytime)     as [day_of_month],
+	DATEPART(MONTH, date_daytime)   as [month],
+	DATEPART(YEAR, date_daytime)    as [year],
+	DATENAME(MONTH, date_daytime)	as [month_name],
+	DATEPART(WEEKDAY, date_daytime) as [day_of_week],
+	DATENAME(WEEKDAY, date_daytime)	as [day_name],
+	DATEPART(HOUR, date_daytime)    as [hour],
+	DATEPART(QUARTER, date_daytime) as [quarter]
+FROM days
+ORDER BY date_daytime

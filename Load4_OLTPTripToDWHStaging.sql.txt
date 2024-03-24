@@ -1,0 +1,36 @@
+IF NOT EXISTS (SELECT * FROM sys.external_file_formats WHERE name = 'SynapseParquetFormat') 
+	CREATE EXTERNAL FILE FORMAT [SynapseParquetFormat] 
+	WITH ( FORMAT_TYPE = PARQUET)
+GO
+
+IF NOT EXISTS (SELECT * FROM sys.external_data_sources WHERE name = 'staging_synapsedwhstoragedlgen2_dfs_core_windows_net') 
+	CREATE EXTERNAL DATA SOURCE [staging_synapsedwhstoragedlgen2_dfs_core_windows_net] 
+	WITH (
+		LOCATION = 'abfss://staging@synapsedwhstoragedlgen2.dfs.core.windows.net' 
+	)
+GO
+
+IF NOT EXISTS (SELECT * FROM sys.schemas WHERE name = 'staging')
+BEGIN
+    EXEC('CREATE SCHEMA staging');
+END
+
+CREATE EXTERNAL TABLE [staging].[trip] (
+	[trip_id] nvarchar(4000),
+	[rideable_type] nvarchar(4000),
+	[start_at] datetime2(7),
+	[ended_at] datetime2(7),
+	[start_station_id] nvarchar(4000),
+	[end_station_id] nvarchar(4000),
+	[rider_id] int
+	)
+	WITH (
+	LOCATION = 'trip.parquet',
+	DATA_SOURCE = [staging_synapsedwhstoragedlgen2_dfs_core_windows_net],
+	FILE_FORMAT = [SynapseParquetFormat]
+	)
+GO
+
+
+SELECT TOP 100 * FROM [staging].[trip]
+GO
